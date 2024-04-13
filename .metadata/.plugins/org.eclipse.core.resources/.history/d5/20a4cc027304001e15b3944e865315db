@@ -1,0 +1,204 @@
+import java.io.*;
+
+class PixelFrequency {
+    int pix;
+    float freq;
+    String code;
+    PixelFrequency left;
+    PixelFrequency right;
+    int arrloc; // Added arrloc field
+}
+
+public class HuffmanCompression {
+    static String strConcat(String s, char c) {
+        return s + String.valueOf(c);
+    }
+
+    static int codeLen(String s) {
+        return s.length();
+    }
+
+    public static void main(String[] args) {
+        try {
+            // Reading the input image file
+            FileInputStream fis = new FileInputStream("Input_Image.bmp");
+            DataInputStream dis = new DataInputStream(fis);
+
+            int width = dis.readInt();
+            int height = dis.readInt();
+
+            int[][] image = new int[height][width];
+
+            for (int i = 0; i < height; i++) {
+                for (int j = 0; j < width; j++) {
+                    image[i][j] = dis.readInt();
+                }
+            }
+
+            // Computing the histogram
+            int[] hist = new int[256];
+
+            for (int i = 0; i < height; i++) {
+                for (int j = 0; j < width; j++) {
+                    hist[image[i][j]]++;
+                }
+            }
+
+            int i, j, nodes = 0;
+
+            for (i = 0; i < 256; i++) {
+                if (hist[i] > 0) {
+                    nodes += 1;
+                }
+            }
+
+            // Creating pixel frequency structure
+            PixelFrequency[] pixFreq = new PixelFrequency[nodes];
+
+            for (i = 0, j = 0; i < 256; i++) {
+                if (hist[i] > 0) {
+                    pixFreq[j] = new PixelFrequency();
+                    pixFreq[j].pix = i;
+                    pixFreq[j].freq = ((float) hist[i]) / (height * width);
+                    j++;
+                }
+            }
+
+            // Sorting the Histogram in Descending Order
+            for (i = 0; i < nodes - 1; i++) {
+                for (j = 0; j < nodes - i - 1; j++) {
+                    if (pixFreq[j].freq < pixFreq[j + 1].freq) {
+                        PixelFrequency tempPix = pixFreq[j];
+                        pixFreq[j] = pixFreq[j + 1];
+                        pixFreq[j + 1] = tempPix;
+                    }
+                }
+            }
+
+            // Constructing the Huffman Tree
+            PixelFrequency[] huffCodes = new PixelFrequency[nodes * 2 - 1];
+
+            for (i = 0; i < nodes * 2 - 1; i++) {
+                huffCodes[i] = new PixelFrequency();
+            }
+
+            for (i = 0; i < nodes; i++) {
+                huffCodes[i].pix = pixFreq[i].pix;
+                huffCodes[i].freq = pixFreq[i].freq;
+                huffCodes[i].left = null;
+                huffCodes[i].right = null;
+            }
+
+            for (i = nodes; i < nodes * 2 - 1; i++) {
+                huffCodes[i].pix = 0;
+                huffCodes[i].freq = 0;
+                huffCodes[i].left = null;
+                huffCodes[i].right = null;
+            }
+
+            for (i = 0; i < nodes - 1; i++) {
+                huffCodes[i].arrloc = i;
+                huffCodes[i].code = "";
+            }
+
+            // Constructing Huffman Tree
+            int x = 0, y = 0, z = 0;
+            float fmin1, fmin2;
+
+            for (i = 0; i < nodes - 1; i++) {
+                fmin1 = 1;
+                fmin2 = 1;
+
+                for (j = 0; j <= i; j++) {
+                    if (huffCodes[j].arrloc == -1 && huffCodes[j].freq <= fmin1) {
+                        fmin1 = huffCodes[j].freq;
+                        x = j;
+                    }
+                }
+
+                for (j = 0; j <= i; j++) {
+                    if (huffCodes[j].arrloc == -1 && huffCodes[j].freq <= fmin2 && j != x) {
+                        fmin2 = huffCodes[j].freq;
+                        y = j;
+                    }
+                }
+
+                huffCodes[x].arrloc = i + nodes;
+                huffCodes[y].arrloc = i + nodes;
+                huffCodes[i + nodes].freq = huffCodes[x].freq + huffCodes[y].freq;
+                huffCodes[i + nodes].left = huffCodes[x];
+                huffCodes[i + nodes].right = huffCodes[y];
+            }
+
+            // Generating Huffman Codes
+            for (i = nodes; i < nodes * 2 - 1; i++) {
+                if (huffCodes[i].left != null) {
+                    huffCodes[i].left.code = strConcat(huffCodes[i].code, '0');
+                }
+
+                if (huffCodes[i].right != null) {
+                    huffCodes[i].right.code = strConcat(huffCodes[i].code, '1');
+                }
+            }
+
+            // Writing Encoded Image to File
+            FileWriter fw = new FileWriter("encoded_image.txt");
+            BufferedWriter bw = new BufferedWriter(fw);
+
+            for (i = 0; i < height; i++) {
+                for (j = 0; j < width; j++) {
+                    int k = 0;
+
+                    while (image[i][j] != huffCodes[k].pix)
+                        k++;
+
+                    bw.write(huffCodes[k].code);
+                }
+            }
+
+            bw.close();
+
+            // Writing Huffman Codes to File
+            FileWriter fw2 = new FileWriter("huffman_codes.txt");
+            BufferedWriter bw2 = new BufferedWriter(fw2);
+
+            for (i = 0; i < nodes; i++) {
+                bw2.write(huffCodes[i].pix + " " + huffCodes[i].code);
+                bw2.newLine();
+            }
+
+            bw2.close();
+
+            // Writing Decoding Table to File
+            FileWriter fw3 = new FileWriter("decoding_table.txt");
+            BufferedWriter bw3 = new BufferedWriter(fw3);
+
+            for (i = 0; i < nodes; i++) {
+                bw3.write(huffCodes[i].code + " " + huffCodes[i].pix);
+                bw3.newLine();
+            }
+
+            bw3.close();
+
+            // Calculating Average Code Length
+            float avgcodelen = 0;
+
+            for (i = 0; i < nodes; i++) {
+                avgcodelen += codeLen(huffCodes[i].code) * huffCodes[i].freq;
+            }
+
+            System.out.println("Average Code Length: " + avgcodelen);
+
+            // Calculating Entropy
+            float entropy = 0;
+
+            for (i = 0; i < nodes; i++) {
+                entropy += -huffCodes[i].freq * (Math.log(huffCodes[i].freq) / Math.log(2));
+            }
+
+            System.out.println("Entropy: " + entropy);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}

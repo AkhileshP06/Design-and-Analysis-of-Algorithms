@@ -1,0 +1,274 @@
+import java.io.*;
+
+class HuffmanCompression {
+    
+    // Class to store pixel frequency information
+    static class PixelFrequency {
+        int pix;
+        int larrloc;
+        int rarrloc;
+        int arrloc;
+        float freq;
+        PixelFrequency left;
+        PixelFrequency right;
+        String code;
+
+        PixelFrequency() {
+            code = "";
+        }
+    }
+
+    // Class to store Huffman code information
+    static class HuffmanCode {
+        int pix;
+        int arrloc;
+        float freq;
+    }
+
+    // Function to calculate code length
+    static int codeLen(String code) {
+        return code.length();
+    }
+
+    // Function to concatenate two strings
+    static String strConcat(String parentCode, char add) {
+        if (add != '2') {
+            return parentCode + add;
+        } else {
+            return parentCode;
+        }
+    }
+
+    // Function to calculate the Fibonacci number
+    static int fib(int n) {
+        if (n <= 1)
+            return n;
+        return fib(n - 1) + fib(n - 2);
+    }
+
+    public static void main(String[] args) {
+        int i, j;
+        String filename = "Input_Image.bmp";
+        int data = 0, offset, bpp = 0, width, height;
+        long bmpsize = 0, bmpdataoff = 0;
+        int[][] image;
+        int temp = 0;
+
+        try {
+            // Reading the BMP File
+            FileInputStream imageFile = new FileInputStream(filename);
+            DataInputStream dis = new DataInputStream(imageFile);
+
+            // Set file position of the stream to the beginning
+            // Contains file signature or ID "BM"
+            offset = 0;
+
+            // Set offset to 2, which contains size of BMP File
+            offset = 2;
+
+            dis.skip(offset);
+            // Getting size of BMP File
+            bmpsize = dis.readInt();
+
+            // Getting offset where the pixel array starts
+            // Since the information is at offset 10 from the start, as given in BMP Header
+            offset = 10;
+
+            dis.skip(offset);
+            // Bitmap data offset
+            bmpdataoff = dis.readInt();
+
+            // Getting height and width of the image
+            // Width is stored at offset 18 and height at offset 22, each of 4 bytes
+            dis.skip(8);
+            width = dis.readInt();
+            height = dis.readInt();
+
+            // Number of bits per pixel
+            dis.skip(2);
+            bpp = dis.readInt();
+
+            // Setting offset to start of pixel data
+            dis.skip(bmpdataoff - 18);
+
+            // Creating Image array
+            image = new int[height][width];
+
+            // Number of bytes in the Image pixel array
+            int numbytes = (int) ((bmpsize - bmpdataoff) / 3);
+
+            // Reading the BMP File into Image Array
+            for (i = 0; i < height; i++) {
+                for (j = 0; j < width; j++) {
+                    temp = dis.readByte();
+                    temp = temp & 0x0000FF;
+                    image[i][j] = temp;
+                }
+            }
+
+            // Finding the probability of occurrence
+            int[] hist = new int[256];
+            for (i = 0; i < 256; i++)
+                hist[i] = 0;
+            for (i = 0; i < height; i++)
+                for (j = 0; j < width; j++)
+                    hist[image[i][j]] += 1;
+
+            // Finding number of non-zero occurrences
+            int nodes = 0;
+            for (i = 0; i < 256; i++)
+                if (hist[i] > 0)
+                    nodes += 1;
+
+            // Creating pixel frequency structure
+            PixelFrequency[] pixFreq = new PixelFrequency[nodes];
+
+            for (i = 0, j = 0; i < 256; i++) {
+                if (hist[i] > 0) {
+                    pixFreq[j] = new PixelFrequency();
+                    pixFreq[j].pix = i;
+                    pixFreq[j].freq = ((float) hist[i]) / (height * width);
+                    j++;
+                }
+            }
+
+            // Sorting the Histogram in Descending Order
+            for (i = 0; i < nodes - 1; i++) {
+                for (j = 0; j < nodes - i - 1; j++) {
+                    if (pixFreq[j].freq < pixFreq[j + 1].freq) {
+                        PixelFrequency tempPix = pixFreq[j];
+                        pixFreq[j] = pixFreq[j + 1];
+                        pixFreq[j + 1] = tempPix;
+                    }
+                }
+            }
+
+            // Constructing the Huffman Tree
+            PixelFrequency[] huffCodes = new PixelFrequency[nodes * 2 - 1];
+
+            for (i = 0; i < nodes * 2 - 1; i++)
+                huffCodes[i] = new PixelFrequency();
+
+            for (i = 0; i < nodes; i++) {
+                huffCodes[i].pix = pixFreq[i].pix;
+                huffCodes[i].freq = pixFreq[i].freq;
+                huffCodes[i].left = null;
+                huffCodes[i].right = null;
+            }
+
+            for (i = nodes; i < nodes * 2 - 1; i++) {
+                huffCodes[i].pix = 0;
+                huffCodes[i].freq = 0;
+                huffCodes[i].left = null;
+                huffCodes[i].right = null;
+            }
+
+            for (i = 0; i < nodes - 1; i++) {
+                huffCodes[i].arrloc = i;
+                huffCodes[i].left = pixFreq[i];
+                huffCodes[i].right = pixFreq[i + 1];
+                huffCodes[i].freq = pixFreq[i].freq + pixFreq[i + 1].freq;
+
+                for (j = nodes; j < nodes * 2 - 1; j++) {
+                    if (huffCodes[j].freq < huffCodes[i].freq) {
+                        PixelFrequency tempPix = huffCodes[j];
+                        huffCodes[j] = huffCodes[i];
+                        huffCodes[i] = tempPix;
+                    }
+                }
+            }
+
+            // Assigning Huffman Codes
+            for (i = nodes; i < nodes * 2 - 1; i++) {
+                huffCodes[i].code = "";
+                int lindex = huffCodes[i].arrloc;
+
+                while (lindex != 0) {
+                    if (huffCodes[lindex].pix == huffCodes[lindex / 2].left.pix)
+                        huffCodes[i].code = strConcat(huffCodes[i].code, '0');
+                    else
+                        huffCodes[i].code = strConcat(huffCodes[i].code, '1');
+                    lindex /= 2;
+                }
+            }
+
+            // Writing Encoded Image to File
+            FileWriter fw = new FileWriter("encoded_image.txt");
+            BufferedWriter bw = new BufferedWriter(fw);
+
+            for (i = 0; i < height; i++) {
+                for (j = 0; j < width; j++) {
+                    int k = 0;
+
+                    while (image[i][j] != huffCodes[k].pix)
+                        k++;
+
+                    bw.write(huffCodes[k].code);
+                }
+            }
+
+            bw.close();
+
+            // Writing Huffman Codes to File
+            FileWriter fw2 = new FileWriter("huffman_codes.txt");
+            BufferedWriter bw2 = new BufferedWriter(fw2);
+
+            for (i = 0; i < nodes; i++) {
+                bw2.write(huffCodes[i].pix + " " + huffCodes[i].code);
+                bw2.newLine();
+            }
+
+            bw2.close();
+
+            // Writing Decoding Table to File
+            FileWriter fw3 = new FileWriter("decoding_table.txt");
+            BufferedWriter bw3 = new BufferedWriter(fw3);
+
+            for (i = 0; i < nodes; i++) {
+                bw3.write(huffCodes[i].code + " " + huffCodes[i].pix);
+                bw3.newLine();
+            }
+
+            bw3.close();
+
+            // Calculating Average Code Length
+            float avgcodelen = 0;
+
+            for (i = 0; i < nodes; i++) {
+                avgcodelen += codeLen(huffCodes[i].code) * huffCodes[i].freq;
+            }
+
+            System.out.println("Average Code Length: " + avgcodelen);
+
+            // Calculating Entropy
+            float entropy = 0;
+
+            for (i = 0; i < nodes; i++) {
+                entropy += huffCodes[i].freq * (Math.log(1 / huffCodes[i].freq) / Math.log(2));
+            }
+
+            System.out.println("Entropy: " + entropy);
+
+            // Calculating Variance
+            float variance = 0;
+
+            for (i = 0; i < nodes; i++) {
+                variance += (codeLen(huffCodes[i].code) - avgcodelen) * (codeLen(huffCodes[i].code) - avgcodelen)
+                        * huffCodes[i].freq;
+            }
+
+            System.out.println("Variance: " + variance);
+
+            // Calculating Efficiency
+            float efficiency = entropy / avgcodelen * 100;
+            System.out.println("Efficiency: " + efficiency);
+
+            // Closing the input stream
+            dis.close();
+        } catch (FileNotFoundException e) {
+            System.out.println("File not found!");
+        } catch (IOException e) {
+            System.out.println("Error reading file!");
+        }
+    }
+}

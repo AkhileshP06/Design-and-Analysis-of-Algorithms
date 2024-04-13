@@ -1,0 +1,140 @@
+import java.awt.image.BufferedImage;
+import java.io.*;
+import java.util.*;
+
+import javax.imageio.ImageIO;
+
+class HuffmanNode implements Comparable<HuffmanNode> {
+    int frequency;
+    char data;
+    HuffmanNode left, right;
+
+    public HuffmanNode(int frequency, char data, HuffmanNode left, HuffmanNode right) {
+        this.frequency = frequency;
+        this.data = data;
+        this.left = left;
+        this.right = right;
+    }
+
+    public boolean isLeaf() {
+        return left == null && right == null;
+    }
+
+    public int compareTo(HuffmanNode node) {
+        return frequency - node.frequency;
+    }
+}
+
+class HuffmanComparator implements Comparator<HuffmanNode> {
+    public int compare(HuffmanNode node1, HuffmanNode node2) {
+        return node1.frequency - node2.frequency;
+    }
+}
+
+public class HuffmanCompression {
+    public static void compressImage(String imagePath, String outputPath) {
+        try {
+            BufferedImage image = ImageIO.read(new File(imagePath));
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            ImageIO.write(image, "jpg", byteArrayOutputStream);
+            byte[] pixels = byteArrayOutputStream.toByteArray();
+
+            Map<Character, Integer> frequencyMap = buildFrequencyMap(pixels);
+            HuffmanNode root = buildHuffmanTree(frequencyMap);
+            Map<Character, String> codeMap = buildCodeMap(root);
+
+            StringBuilder encodedData = new StringBuilder();
+            for (byte pixel : pixels) {
+                char pixelChar = (char) (pixel & 0xFF);
+                encodedData.append(codeMap.get(pixelChar));
+            }
+
+            byte[] compressedData = encodeData(encodedData.toString());
+            saveCompressedImageAsJpg(compressedData, outputPath);
+            System.out.println("Image compression completed! Compressed image saved as: " + outputPath);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static Map<Character, Integer> buildFrequencyMap(byte[] pixels) {
+        Map<Character, Integer> frequencyMap = new HashMap<>();
+        for (byte pixel : pixels) {
+            char pixelChar = (char) (pixel & 0xFF);
+            frequencyMap.put(pixelChar, frequencyMap.getOrDefault(pixelChar, 0) + 1);
+        }
+        return frequencyMap;
+    }
+
+    private static HuffmanNode buildHuffmanTree(Map<Character, Integer> frequencyMap) {
+        PriorityQueue<HuffmanNode> pq = new PriorityQueue<>(new HuffmanComparator());
+
+        for (Map.Entry<Character, Integer> entry : frequencyMap.entrySet()) {
+            pq.add(new HuffmanNode(entry.getValue(), entry.getKey(), null, null));
+        }
+
+        while (pq.size() > 1) {
+            HuffmanNode left = pq.poll();
+            HuffmanNode right = pq.poll();
+            int sumFrequency = left.frequency + right.frequency;
+            pq.add(new HuffmanNode(sumFrequency, '\0', left, right));
+        }
+
+        return pq.poll();
+    }
+
+    private static Map<Character, String> buildCodeMap(HuffmanNode root) {
+        Map<Character, String> codeMap = new HashMap<>();
+        buildCodeMapHelper(root, "", codeMap);
+        return codeMap;
+    }
+
+    private static void buildCodeMapHelper(HuffmanNode node, String code, Map<Character, String> codeMap) {
+        if (node.isLeaf()) {
+            codeMap.put(node.data, code);
+            return;
+        }
+
+        buildCodeMapHelper(node.left, code + "0", codeMap);
+        buildCodeMapHelper(node.right, code + "1", codeMap);
+    }
+
+    private static byte[] encodeData(String encodedData) {
+        int length = encodedData.length();
+        int numBytes = (length + 7) / 8;
+        byte[] bytes = new byte[numBytes];
+
+        for (int i = 0; i < length; i++) {
+            if (encodedData.charAt(i) == '1') {
+                int byteIndex = i / 8;
+                int bitOffset = i % 8;
+                bytes[byteIndex] |= (1 << (7 - bitOffset));
+            }
+        }
+
+        return bytes;
+    }
+
+    private static void saveCompressedImageAsJpg(byte[] compressedData, String outputPath) {
+        try (FileOutputStream outputStream = new FileOutputStream(outputPath)) {
+            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(compressedData);
+            BufferedImage image = ImageIO.read(byteArrayInputStream);
+            ImageIO.write(image, "jpg", outputStream);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.print("Enter the path of the input image: ");
+        String imagePath = scanner.nextLine();
+
+        System.out.print("Enter the path to save the compressed image: ");
+        String outputPath = scanner.nextLine();
+
+        compressImage(imagePath, outputPath);
+        scanner.close();
+    }
+}

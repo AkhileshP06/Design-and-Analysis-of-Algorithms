@@ -1,0 +1,8 @@
+public class MainHuffman {
+    public static void main(String[] args) {
+        String imagePath = "path/to/input/image.jpg";
+        String outputPath = "path/to/output/compressed_image.bin";
+        HuffmanCompression.compressImage(imagePath, outputPath);
+        System.out.println("Image compression completed!");
+    }
+}
