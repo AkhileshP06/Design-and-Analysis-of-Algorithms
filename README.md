@@ -15,12 +15,15 @@ To get started follow these steps . . .
 ```git clone https://github.com/AkhileshP06/Design-and-Analysis-of-Algorithms.git```
 
 2. Navigate to the `Algorithms/src` directory:
+
 ```cd Design-and-Analysis-of-Algorithms/Algorithms/src```
 
 3. Compile the Java files using the following command:
+
 ```javac *.java```
 
 4. Run the Java files using the `java` command followed by the name of the Java file without the `.java` extension. For example, to run the `BubbleSort.java` file, use the following command:
+
 ```java BubbleSort```
 
 Note: Some Java files may require command-line arguments during runtime. In such cases, the required arguments will be specified in the file's comments & the user will be prompted to enter any and all required arguments.
